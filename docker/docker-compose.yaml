@@ -1,0 +1,37 @@
+version: '3'
+services:
+  postgres:
+    container_name: ticket_db
+    build: postgres
+    restart: always
+    ports:
+      - '5435:5432'
+    env_file:
+      - ./postgres/database.env
+    volumes:
+      - ./postgres/1-init.sql:/docker-entrypoint-initdb.d/1-schema.sql
+      - ./var/lib/postgresql/data:/var/lib/postgresql/data
+  php:
+    container_name: ticket_fpm
+    build: php-fpm
+    restart: always
+    ports:
+      - '9002:9000'
+    volumes:
+      - ../.:/var/www/tickets:cached
+      - ./php-fpm/php.ini:/usr/local/etc/php/conf.d/php.ini
+    links:
+      - postgres
+    command: bash -c "cd /var/www/tickets && mkdir -p uploads && composer install --prefer-dist && composer dump-autoload && php-fpm"
+  nginx:
+    container_name: ticket_nginx
+    restart: always
+    build: nginx
+    ports:
+      - '80:80'
+    links:
+      - php
+    volumes:
+      - ../.:/var/www/tickets:cached
+      - ./php-fpm/php.ini:/usr/local/etc/php/conf.d/php.ini
+      - ./var/logs/nginx/:/var/log/nginx:cached
